@@ -21,9 +21,17 @@ async function askAI(input) {
     })
   });
 
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+
   const json = await response.json();
 
-  return json.output_text;
+  return (
+    json.output_text ??
+    json.output?.map(x => x.content?.map(c => c.text).join("")).join("") ??
+    "I'm unable to respond right now."
+  );
 }
 
 export default async function handler(req, res) {
