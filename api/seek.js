@@ -1,54 +1,57 @@
 import { CONFIG } from "./config.js";
-import { SYSTEM_PROMPT,SUMMARIZER_PROMPT } from "./prompt.js";
+import { SYSTEM_PROMPT, SUMMARIZER_PROMPT } from "./prompt.js";
 import { ask } from "./ai.js";
 
-export default async function handler(req,res){
-    res.setHeader("Access-Control-Allow-Origin","*");
-    res.setHeader("Access-Control-Allow-Methods","POST,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers","Content-Type");
-    if(req.method==="OPTIONS") return res.status(200).end();
-    if(req.method!=="POST") return res.status(405).json({error:"Method not allowed"});
+export default async function handler(req, res) {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    try{
-        const {message,summary="",messages=[]}=req.body;
-        const recent=messages.slice(-CONFIG.RECENT_MESSAGES);
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-        res.setHeader("Content-Type","text/event-stream");
-        res.setHeader("Cache-Control","no-cache");
-        res.setHeader("Connection","keep-alive");
+    try {
 
-        let reply = "";
+        const { message, summary = "", messages = [] } = req.body;
+        const recent = messages.slice(-CONFIG.RECENT_MESSAGES);
 
-        reply = await ask([
-            {role:"system",content:SYSTEM_PROMPT},
-            ...(summary?[{role:"system",content:summary}]:[]),
+        const reply = await ask([
+            { role: "system", content: SYSTEM_PROMPT },
+            ...(summary ? [{ role: "system", content: summary }] : []),
             ...recent,
-            {role:"user",content:message}
-        ], token=>{
-            res.write(`data:${JSON.stringify({token})}\n\n`);
-        });
-
-        const updatedSummary=await ask([
-            {role:"system",content:SUMMARIZER_PROMPT.replace("{{WORDS}}",CONFIG.SUMMARY_WORD_LIMIT)},
-            {role:"user",content:JSON.stringify({
-                previousSummary:summary,
-                newMessages:[
-                    ...recent,
-                    {role:"user",content:message},
-                    {role:"assistant",content:reply}
-                ]
-            })}
+            { role: "user", content: message }
         ]);
 
-        res.write(`data:${JSON.stringify({
-            done:true,
-            summary:updatedSummary
-        })}\n\n`);
+        const updatedSummary = await ask([
+            {
+                role: "system",
+                content: SUMMARIZER_PROMPT.replace("{{WORDS}}", CONFIG.SUMMARY_WORD_LIMIT)
+            },
+            {
+                role: "user",
+                content: JSON.stringify({
+                    previousSummary: summary,
+                    newMessages: [
+                        ...recent,
+                        { role: "user", content: message },
+                        { role: "assistant", content: reply }
+                    ]
+                })
+            }
+        ]);
 
-        res.end();
+        return res.status(200).json({
+            reply,
+            summary: updatedSummary
+        });
 
-    }catch(err){
+    } catch (err) {
+
         console.error(err);
-        res.status(500).json({error:err.message});
+
+        return res.status(500).json({
+            error: err.message
+        });
+
     }
 }
