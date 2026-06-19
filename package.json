@@ -1,5 +1,5 @@
 {
   "name": "bhagavad-gita-wisdom",
-  "private": false,
+  "private": true,
   "type": "module"
 }
