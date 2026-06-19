@@ -1,9 +1,9 @@
 import { SYSTEM_PROMPT } from "./prompt.js";
 
-const API_URL = "https://api.openai.com/v1/responses";
+const API_URL = process.env.API_URL || "https://api.openai.com/v1/responses";
 const API_KEY = process.env.OPENAI_API_KEY;
 
-const MODEL = "gpt-5";
+const MODEL = process.env.MODEL || "gpt-5";
 
 const RECENT_MESSAGE_COUNT = 8;
 const SUMMARY_MAX_WORDS = 500;
