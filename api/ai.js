@@ -10,8 +10,7 @@ export async function ask(messages, onToken = null) {
         body: JSON.stringify({
             model: CONFIG.MODEL,
             messages,
-            stream: !!onToken,
-            temperature: CONFIG.TEMPERATURE
+            stream: !!onToken
         })
     });
 
