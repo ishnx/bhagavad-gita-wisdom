@@ -1,94 +1,44 @@
-import { SYSTEM_PROMPT } from "./prompt.js";
+import { CONFIG } from "./config.js";
+import { SYSTEM_PROMPT,SUMMARIZER_PROMPT } from "./prompt.js";
+import { ask } from "./ai.js";
 
-const API_URL = process.env.API_URL || "https://api.openai.com/v1/responses";
-const API_KEY = process.env.OPENAI_API_KEY;
+export default async function handler(req,res){
+    res.setHeader("Access-Control-Allow-Origin","*");
+    res.setHeader("Access-Control-Allow-Methods","POST,OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers","Content-Type");
+    if(req.method==="OPTIONS") return res.status(200).end();
+    if(req.method!=="POST") return res.status(405).json({error:"Method not allowed"});
 
-const MODEL = process.env.MODEL || "gpt-5";
+    try{
+        const {message,summary="",messages=[]}=req.body;
+        const recent=messages.slice(-CONFIG.RECENT_MESSAGES);
 
-const RECENT_MESSAGE_COUNT = 8;
-const SUMMARY_MAX_WORDS = 500;
+        const reply=await ask([
+            {role:"system",content:SYSTEM_PROMPT},
+            ...(summary?[{role:"system",content:summary}]:[]),
+            ...recent,
+            {role:"user",content:message}
+        ]);
 
-async function askAI(input) {
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${API_KEY}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      input
-    })
-  });
+        const updatedSummary=await ask([
+            {role:"system",content:SUMMARIZER_PROMPT.replace("{{WORDS}}",CONFIG.SUMMARY_WORD_LIMIT)},
+            {role:"user",content:JSON.stringify({
+                previousSummary:summary,
+                newMessages:[
+                    ...recent,
+                    {role:"user",content:message},
+                    {role:"assistant",content:reply}
+                ]
+            })}
+        ]);
 
-  if (!response.ok) {
-    throw new Error(await response.text());
-  }
+        res.status(200).json({
+            reply,
+            summary:updatedSummary
+        });
 
-  const json = await response.json();
-
-  return (
-    json.output_text ??
-    json.output?.map(x => x.content?.map(c => c.text).join("")).join("") ??
-    "I'm unable to respond right now."
-  );
-}
-
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const {
-    message,
-    summary = "",
-    messages = []
-  } = req.body;
-
-  const recentMessages = messages.slice(-RECENT_MESSAGE_COUNT);
-
-  const conversation = [
-    SYSTEM_PROMPT,
-
-    summary
-      ? `Story So Far:\n${summary}`
-      : "This is the beginning of the conversation.",
-
-    "Recent Conversation:",
-
-    ...recentMessages.map(
-      m => `${m.role.toUpperCase()}: ${m.content}`
-    ),
-
-    `USER: ${message}`
-  ].join("\n\n");
-
-  const reply = await askAI(conversation);
-
-  const updatedSummary = await askAI(`
-Current Story So Far:
-
-${summary}
-
-New Conversation:
-
-${recentMessages
-  .map(m => `${m.role}: ${m.content}`)
-  .join("\n")}
-
-user: ${message}
-
-assistant: ${reply}
-
-Rewrite the Story So Far.
-
-Keep only information useful for continuing future conversations.
-
-Maximum ${SUMMARY_MAX_WORDS} words.
-`);
-
-  return res.status(200).json({
-    reply,
-    summary: updatedSummary
-  });
+    }catch(err){
+        console.error(err);
+        res.status(500).json({error:err.message});
+    }
 }
