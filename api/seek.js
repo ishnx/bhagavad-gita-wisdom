@@ -13,12 +13,20 @@ export default async function handler(req,res){
         const {message,summary="",messages=[]}=req.body;
         const recent=messages.slice(-CONFIG.RECENT_MESSAGES);
 
-        const reply=await ask([
+        res.setHeader("Content-Type","text/event-stream");
+        res.setHeader("Cache-Control","no-cache");
+        res.setHeader("Connection","keep-alive");
+
+        let reply = "";
+
+        reply = await ask([
             {role:"system",content:SYSTEM_PROMPT},
             ...(summary?[{role:"system",content:summary}]:[]),
             ...recent,
             {role:"user",content:message}
-        ]);
+        ], token=>{
+            res.write(`data:${JSON.stringify({token})}\n\n`);
+        });
 
         const updatedSummary=await ask([
             {role:"system",content:SUMMARIZER_PROMPT.replace("{{WORDS}}",CONFIG.SUMMARY_WORD_LIMIT)},
@@ -32,10 +40,12 @@ export default async function handler(req,res){
             })}
         ]);
 
-        res.status(200).json({
-            reply,
+        res.write(`data:${JSON.stringify({
+            done:true,
             summary:updatedSummary
-        });
+        })}\n\n`);
+
+        res.end();
 
     }catch(err){
         console.error(err);

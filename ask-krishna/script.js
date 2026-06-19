@@ -9,11 +9,18 @@ let messages = [];
 
 function bubble(role, text) {
     const div = document.createElement("div");
-    div.className = role;
-    div.innerText = text;
+    div.className = `bubble ${role}`;
+
+    const content = document.createElement("div");
+    content.className = "content";
+    content.textContent = text;
+
+    div.appendChild(content);
 
     chat.appendChild(div);
     chat.scrollTop = chat.scrollHeight;
+
+    return div;
 }
 
 form.addEventListener("submit", async (e) => {
@@ -29,7 +36,8 @@ form.addEventListener("submit", async (e) => {
 
     const loading = document.createElement("div");
     loading.className = "assistant loading";
-    loading.innerText = "Krishna is reflecting...";
+    loading.appendChild(document.createElement("div")).className = "content";
+    loading.querySelector(".content").textContent = "Krishna is reflecting…";
     chat.appendChild(loading);
     chat.scrollTop = chat.scrollHeight;
 
