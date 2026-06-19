@@ -1,5 +1,5 @@
 export const CONFIG = {
-    MODEL: process.env.MODEL || "gpt-5",
+    MODEL: process.env.MODEL || "gpt-5-mini",
     API_URL: process.env.API_URL || "https://api.openai.com/v1/chat/completions",
     API_KEY: process.env.OPENAI_API_KEY,
     RECENT_MESSAGES: 8,
